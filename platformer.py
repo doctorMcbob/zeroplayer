@@ -90,7 +90,7 @@ def death():
 
 if __name__ == "__main__":
     while player.x <= W:
-        CLOCK.tick(30)
+        CLOCK.tick(6)
         if state == 'jmp':
             player.y -= 96
 
