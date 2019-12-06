@@ -45,7 +45,7 @@ platforms = []
 
 for x in range(W // 64):
     platforms.append(pygame.rect.Rect((x*64, H-32), (64, 32)))
-    if x > 8 and x % 5 == 0:
+    if x > 8 and x % 4 == 0:
         roll = random.randint(0, 60)
         if roll <= 15:
             enemies.append(pygame.rect.Rect(((x+1)*64, 16), (64, 32)))
@@ -55,10 +55,10 @@ for x in range(W // 64):
         elif roll <= 45:
             enemies.append(pygame.rect.Rect((x*64, 64),(64, 32)))
         else:
-            platforms.append(pygame.rect.Rect(((x-1)*64, H-64), (64, 32)))
-            platforms.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
-            platforms.append(pygame.rect.Rect((x*64, H-96), (64, 32)))
+            enemies.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
             platforms.append(pygame.rect.Rect(((x+1)*64, H-64), (64, 32)))
+            platforms.append(pygame.rect.Rect(((x+1)*64, H-96), (64, 32)))
+
 player = pygame.rect.Rect((0, H-96), (64, 64))
 state = "run"
 
@@ -89,8 +89,14 @@ def death():
     frame = 0
 
 if __name__ == "__main__":
-    while player.x <= W:
-        CLOCK.tick(6)
+    complete = False
+    sidx = 0
+    slist = [120, 60, 30, 15, 6, 3]
+    while frame < W // 64:
+        if complete:
+            CLOCK.tick(3)
+        else:
+            CLOCK.tick(slist[sidx])
         if state == 'jmp':
             player.y -= 96
 
@@ -114,8 +120,15 @@ if __name__ == "__main__":
         pygame.display.update()
         if player.collidelist(enemies) != -1:
             death()
-            
+        if not complete and frame == W // 64:
+            complete = True
+            player.x = 0
+            player.y = H - 96
+            frame = 0
         pygame.display.update()
         for e in pygame.event.get():
             if e.type == QUIT: quit()
-            if e.type == KEYDOWN and e.key == K_ESCAPE: quit()
+            if e.type == KEYDOWN:
+                if e.key == K_ESCAPE: quit()
+                if e.key == K_LEFT: sidx = min(sidx + 1, 5)
+                if e.key == K_RIGHT: sidx = max(sidx - 1, 0)
