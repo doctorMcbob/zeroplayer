@@ -2,7 +2,7 @@ import pygame
 from pygame.locals import *
 from pygame.rect import Rect
 from random import randint
-    
+
 W, H = (40, 40)
 PW = 16
 cells = set()

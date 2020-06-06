@@ -1,11 +1,13 @@
 import pygame
 from pygame.locals import *
 import random
+import sys
 
 pygame.init()
 
 W, H = 64 * 100, 64 * 3
-SCREEN = pygame.display.set_mode((min(W, 640), min(H, 480)))
+if "-f" in sys.argv: SCREEN = pygame.display.set_mode((min(W, 640), min(H, 480)), FULLSCREEN)
+else: SCREEN = pygame.display.set_mode((min(W, 640), min(H, 480)))
 CLOCK = pygame.time.Clock()
 
 HEL16 = pygame.font.SysFont("helvetica", 16)
@@ -72,6 +74,7 @@ def drawn():
         if jumps and x <= jumps[-1]:
             col = (0, 255, 0) if x in jumps else (100, 100, 100)
             pygame.draw.circle(surf, col, ((x*64)+32, 16), 5)
+    surf.blit(sprites["wiz"+state+str(frame%2)], (player.x, player.y))
     return surf
 
 jumps = []
@@ -91,7 +94,7 @@ def death():
 if __name__ == "__main__":
     complete = False
     sidx = 0
-    slist = [120, 60, 30, 15, 6, 3]
+    slist = [0, 120, 60, 30, 15, 6, 3]
     while frame < W // 64:
         if complete:
             CLOCK.tick(3)
@@ -115,9 +118,7 @@ if __name__ == "__main__":
         
         SCREEN.fill((100, 100, 100))
         SCREEN.blit(drawn(), (64 - player.x, 0))
-        SCREEN.blit(sprites["wiz"+state+str(frame%2)], (64, player.y))
         SCREEN.blit(HEL16.render(str(frame), 0, (0, 0, 0)), (0, 32))
-        pygame.display.update()
         if player.collidelist(enemies) != -1:
             death()
         if not complete and frame == W // 64:
