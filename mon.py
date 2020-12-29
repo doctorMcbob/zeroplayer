@@ -28,6 +28,7 @@ a battle turn goes like this,
 |   The other Mon resolves move
 |   check if any Mons have died
 +---
+
 When a Mon is reduced to 0 HP it is dead and removed from the team
 if the Team has an open slot then a defeated Wild Mon has a chance to join the team (?)
 
@@ -55,14 +56,14 @@ ANIMALS = {
 }
 
 ANIMAL_STAT_MODS = {
-    "bird": { "SP": 4, "AT": 2, "DF": 2, "HP": 2 },
-    "ape": { "SP": 2, "AT": 3, "DF": 2, "HP": 3 },
-    "rodent": { "SP": 3, "AT": 3, "DF": 2, "HP": 2 },
-    "snake": { "SP": 3, "AT": 2, "DF": 3, "HP": 2 },
-    "monster": { "SP": 2, "AT": 4, "DF": 2, "HP": 2 },
+    "bird": { "SP": 4, "AT": 2, "DF": 2, "HP": 10 },
+    "ape": { "SP": 2, "AT": 3, "DF": 2, "HP": 15 },
+    "rodent": { "SP": 3, "AT": 3, "DF": 2, "HP": 10 },
+    "snake": { "SP": 3, "AT": 2, "DF": 3, "HP": 10 },
+    "monster": { "SP": 2, "AT": 4, "DF": 2, "HP": 10 },
 }
 
-ATTACKS = {
+MOVES = {
     "fire": {
         "Blast": """attack;front;20""",
         "Cook": """attack;left,right;10""",
@@ -115,13 +116,47 @@ ATTACKS = {
     }
 }
 
+index_modifier = {
+    "front": 0, "left": -1, "right":1
+}
+        
+
 def calculate_damage(attacker, defender, move_type, base_dmg):
-    dmg = (base_dmg * attacker["stats"]["AT"]) * (1 / defender["stats"]["DF"])
+    dmg = (base_dmg * (attacker.stats["AT"] + attacker.stat_mods["AT"])) * (1 / (defender.stats["DF"] + defender.stat_mods["DF"]))
     if move_type in ANIMALS[defender.animal]["weak"] + ELEMENTS[defender.element]["weak"]:
         dmg *= 1.25
     if move_type in ANIMALS[defender.animal]["res"] + ELEMENTS[defender.element]["res"]:
         dmg *= 0.75
     return dmg
+
+def kill_mons(team):
+    for i, mon in enumerate(team.mons):
+        if mon is not None and mon.HP <= 0: team.mons[i] = None        
+
+def battle_turn(team1, team2):
+    mon1 = choice(team1.mons)
+    while mon1 is None: mon1 = choice(team1.mons)
+    mon1_move = choice(mon1.moves)
+    mon2 = choice(team2.mons)
+    while mon2 is None: mon2 = choice(team2.mons)
+    mon2_move = choice(mon2.moves)
+
+    print("team1 sends ", mon1.element, mon1.animal)
+    print("team2 sends ", mon2.element, mon2.animal)
+    
+    team1.front = team1.mons.index(mon1)
+    team2.front = team2.mons.index(mon2)
+
+    if mon1.stats["SP"] + mon1.stat_mods["SP"] > mon2.stats["SP"] + mon2.stat_mods["SP"] or (mon1.stats["SP"] + mon1.stat_mods["SP"] == mon2.stats["SP"] + mon2.stat_mods["SP"] and randint(0, 1)):
+        team1.resolve_move(mon1, mon1_move, team2)
+        kill_mons(team2)
+        team2.resolve_move(mon2, mon2_move, team1)
+        kill_mons(team1)
+    else:
+        team2.resolve_move(mon2, mon2_move, team1)
+        kill_mons(team1)
+        team1.resolve_move(mon1, mon1_move, team2)
+        kill_mons(team2)
         
 class Mon(object):
     def __init__(self, element, animal, level=1):
@@ -134,17 +169,21 @@ class Mon(object):
         while self.level < level:
             self.level_up()
 
-        self.HP = self.stats["HP"]  # current HP vs max HP
+        self.stat_mods = {
+            "AT": 0, "DF": 0, "SP": 0,
+        }
+            
+        self.HP = self.stats["HP"] * 10  # current HP vs max HP
         
         self.moves = (
-            choice(ATTACKS[self.element]),
-            choice(ATTACKS[self.animal]),
+            choice(list(MOVES[self.element].keys())),
+            choice(list(MOVES[self.animal].keys())),
         )
             
     def level_up(self):
         for stat in self.stats:
             self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal]+1)
-        self.HP = self.stats["HP"]
+        self.HP = self.stats["HP"] * 10
         self.level += 1
 
 
@@ -153,8 +192,99 @@ class Team(object):
         self.mons = [mon1, mon2, mon3]
         self.front = 0
 
-    def resolve_attack(self, enemy_team):
+    def resolve_move(self, attacker, move, enemy_team):
         """
         Move Interpreter (magic goes here)
         """
-        pass
+        print(attacker.element, attacker.animal, "uses", move)
+        for ty in MOVES:
+            if move in MOVES[ty]:
+                movedata = MOVES[ty][move]
+                movetype = ty
+                break
+            
+        move_catagory, targets, data = movedata.split(";")
+        
+        for target in targets.split(","):
+            if move_catagory == "attack":
+                mon = enemy_team.mons[(enemy_team.front + index_modifier[target]) % 3]
+            elif move_catagory == "stat":
+                mon = self.mons[(enemy_team.front + index_modifier[target]) % 3]
+
+            if mon is None: continue
+            
+            if move_catagory == "attack":
+                dmg = calculate_damage(attacker, mon, movetype, int(data))
+                mon.HP -= dmg
+
+            if move_catagory == "stat":
+                for statmod in data.split(","):
+                    if "HEAL" in statmod:
+                        mon.HP = min(mon.stats["HP"] * 10, mon.HP + 100 * (int(statmod[4:]) / float(mon.stats["HP"] * 10)))
+                        continue
+                    
+                    stat = statmod[:2]
+                    mod = int(statmod[2:])
+                    mon.stat_mods[stat] += mod
+
+if __name__ == """__main__""":
+    mon1 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    mon2 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    mon3 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    myTeam = Team(mon1, mon2, mon3)
+
+    mon4 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    mon5 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    mon6 = Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+    enemyTeam = Team(mon4, mon5, mon6)
+
+    def print_teams():
+        print()
+        print("my team")
+        for mon in myTeam.mons:
+            print("-")
+            if mon is None:
+                print("DEAD")
+                continue
+            print(mon.element, mon.animal)
+            print("HP", mon.HP,"/", mon.stats["HP"] * 10)
+            print(mon.stat_mods)
+
+        print("-----")
+        print("enemy team")
+        for mon in enemyTeam.mons:
+            print("-")
+            if mon is None:
+                print("DEAD")
+                continue
+            print(mon.element, mon.animal)
+            print("HP", mon.HP,"/", mon.stats["HP"] * 10)
+            print(mon.stat_mods)
+
+    from os import system
+    system("cls|clear")
+    print_teams()
+    while any(myTeam.mons) and any(enemyTeam.mons):
+        input("\nenter to run next turn...")
+        system("cls|clear")
+        battle_turn(myTeam, enemyTeam)
+        print_teams()
+    
