@@ -127,6 +127,7 @@ def calculate_damage(attacker, defender, move_type, base_dmg):
         dmg *= 1.25
     if move_type in ANIMALS[defender.animal]["res"] + ELEMENTS[defender.element]["res"]:
         dmg *= 0.75
+    print(dmg, "damage")
     return dmg
 
 def kill_mons(team):
@@ -141,8 +142,8 @@ def battle_turn(team1, team2):
     while mon2 is None: mon2 = choice(team2.mons)
     mon2_move = choice(mon2.moves)
 
-    print("team1 sends ", mon1.element, mon1.animal)
-    print("team2 sends ", mon2.element, mon2.animal)
+    print("team1 sends", mon1.element, mon1.animal)
+    print("team2 sends", mon2.element, mon2.animal)
     
     team1.front = team1.mons.index(mon1)
     team2.front = team2.mons.index(mon2)
@@ -150,11 +151,13 @@ def battle_turn(team1, team2):
     if mon1.stats["SP"] + mon1.stat_mods["SP"] > mon2.stats["SP"] + mon2.stat_mods["SP"] or (mon1.stats["SP"] + mon1.stat_mods["SP"] == mon2.stats["SP"] + mon2.stat_mods["SP"] and randint(0, 1)):
         team1.resolve_move(mon1, mon1_move, team2)
         kill_mons(team2)
+        if mon2.HP <= 0: return
         team2.resolve_move(mon2, mon2_move, team1)
         kill_mons(team1)
     else:
         team2.resolve_move(mon2, mon2_move, team1)
         kill_mons(team1)
+        if mon1.HP <= 0: return
         team1.resolve_move(mon1, mon1_move, team2)
         kill_mons(team2)
         
@@ -258,24 +261,24 @@ if __name__ == """__main__""":
 
     def print_teams():
         print()
-        print("my team")
-        for mon in myTeam.mons:
+        print("my team", "front:", myTeam.front)
+        for i, mon in enumerate(myTeam.mons):
             print("-")
             if mon is None:
                 print("DEAD")
                 continue
-            print(mon.element, mon.animal)
+            print(i, ":", mon.element, mon.animal)
             print("HP", mon.HP,"/", mon.stats["HP"] * 10)
             print(mon.stat_mods)
 
         print("-----")
-        print("enemy team")
-        for mon in enemyTeam.mons:
+        print("enemy team", "front:", enemyTeam.front)
+        for i, mon in enumerate(enemyTeam.mons):
             print("-")
             if mon is None:
                 print("DEAD")
                 continue
-            print(mon.element, mon.animal)
+            print(i, ":", mon.element, mon.animal)
             print("HP", mon.HP,"/", mon.stats["HP"] * 10)
             print(mon.stat_mods)
 
