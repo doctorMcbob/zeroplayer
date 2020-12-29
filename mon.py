@@ -59,7 +59,7 @@ ANIMAL_STAT_MODS = {
     "ape": { "SP": 2, "AT": 3, "DF": 2, "HP": 3 },
     "rodent": { "SP": 3, "AT": 3, "DF": 2, "HP": 2 },
     "snake": { "SP": 3, "AT": 2, "DF": 3, "HP": 2 },
-    "monster" { "SP": 2, "AT": 4, "DF": 2, "HP": 2 },
+    "monster": { "SP": 2, "AT": 4, "DF": 2, "HP": 2 },
 }
 
 ATTACKS = {
