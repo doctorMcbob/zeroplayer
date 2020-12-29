@@ -41,28 +41,28 @@ sprites['baddie1'].blit(baddie, (-64, 0))
 
 for key in sprites: sprites[key].set_colorkey((1, 255, 1))
 
-frame=0
-enemies = []
-platforms = []
+def setup():
+    global frame, enemies, platforms, jumps
+    frame=0
+    enemies = []
+    platforms = []
+    jumps = []
+    for x in range(W // 64):
+        platforms.append(pygame.rect.Rect((x*64, H-32), (64, 32)))
+        if x > 8 and x % 4 == 0:
+            roll = random.randint(0, 60)
+            if roll <= 15:
+                enemies.append(pygame.rect.Rect(((x+1)*64, 16), (64, 32)))
+                platforms.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
+            elif roll <= 30:
+                enemies.append(pygame.rect.Rect((x*64, H-64),(64, 32)))
+            elif roll <= 45:
+                enemies.append(pygame.rect.Rect((x*64, 64),(64, 32)))
+            else:
+                enemies.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
+                platforms.append(pygame.rect.Rect(((x+1)*64, H-64), (64, 32)))
+                platforms.append(pygame.rect.Rect(((x+1)*64, H-96), (64, 32)))
 
-for x in range(W // 64):
-    platforms.append(pygame.rect.Rect((x*64, H-32), (64, 32)))
-    if x > 8 and x % 4 == 0:
-        roll = random.randint(0, 60)
-        if roll <= 15:
-            enemies.append(pygame.rect.Rect(((x+1)*64, 16), (64, 32)))
-            platforms.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
-        elif roll <= 30:
-            enemies.append(pygame.rect.Rect((x*64, H-64),(64, 32)))
-        elif roll <= 45:
-            enemies.append(pygame.rect.Rect((x*64, 64),(64, 32)))
-        else:
-            enemies.append(pygame.rect.Rect((x*64, H-64), (64, 32)))
-            platforms.append(pygame.rect.Rect(((x+1)*64, H-64), (64, 32)))
-            platforms.append(pygame.rect.Rect(((x+1)*64, H-96), (64, 32)))
-
-player = pygame.rect.Rect((0, H-96), (64, 64))
-state = "run"
 
 def drawn():
     surf = pygame.Surface((W, H))
@@ -77,7 +77,6 @@ def drawn():
     surf.blit(sprites["wiz"+state+str(frame%2)], (player.x, player.y))
     return surf
 
-jumps = []
 def jump(frame):
     if not jumps or frame > jumps[-1]:
         if random.randint(0, 1): jumps.append(frame)
@@ -91,9 +90,13 @@ def death():
     player.y = H - 96
     frame = 0
 
-if __name__ == "__main__":
+def run():
+    global frame, state, player
+    player = pygame.rect.Rect((0, H-96), (64, 64))
+    frame = 0
+    state = "run"
     complete = False
-    sidx = 0
+    sidx = 5
     slist = [0, 120, 60, 30, 15, 6, 3]
     while frame < W // 64:
         if complete:
@@ -133,3 +136,13 @@ if __name__ == "__main__":
                 if e.key == K_ESCAPE: quit()
                 if e.key == K_LEFT: sidx = min(sidx + 1, 5)
                 if e.key == K_RIGHT: sidx = max(sidx - 1, 0)
+
+
+if __name__ == """__main__""":
+    if "-c" in sys.argv:
+        while True:
+            setup()
+            run()
+    else:
+        setup()
+        run()
