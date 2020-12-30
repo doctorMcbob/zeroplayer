@@ -37,7 +37,12 @@ if the champion is defeated, the new team becomes the champion
 
 maybe the old champion will become a gym leader or something, idk ill get there when i get there
 """
+import pygame
+from pygame import Rect
+from pygame.locals import *
 from random import randint, choice
+
+from tokens import tokens as tk
 
 ELEMENTS = {
     "fire": {"weak":["water"], "res":["wind"]},
@@ -119,8 +124,65 @@ MOVES = {
 index_modifier = {
     "front": 0, "left": -1, "right":1
 }
-        
 
+COLORS = {
+    "fire": ((77, 0, 0), (255, 0, 0)),
+    "water": ((0, 0, 77), (0, 0, 255)),
+    "wind": ((0, 77, 77), (153, 255, 201)),
+    "earth": ((51, 26, 0), (153, 77, 0)),
+    "plant": ((0, 77, 0), (0, 255, 0)),
+}
+
+BATTLE_DRAW_POSITIONS = {
+    "team1": {
+        "left": (32, 32),
+        "right": (32, 128),
+        "front": (128, 64)
+    },
+    "team2":{
+        "left": (448, 32),
+        "right": (448, 128),
+        "front": (320, 64)
+    }
+}
+def draw_battle(dest, team1, team2):
+    for i, mon in enumerate(team1.mons):
+        if mon is None: continue
+        if i == team1.front:
+            PW = 3
+            pos = BATTLE_DRAW_POSITIONS["team1"]["front"]
+        elif i == (team1.front + 1) % 3:
+            PW = 2
+            pos = BATTLE_DRAW_POSITIONS["team1"]["right"]
+        elif i == (team1.front - 1) % 3:
+            PW = 2
+            pos = BATTLE_DRAW_POSITIONS["team1"]["left"]
+
+        col1, col2 = COLORS[mon.element]
+        tk.draw_token(dest, mon.animal, pos, col1=col1, col2=col2, PW=PW)
+
+        pygame.draw.rect(dest, (0, 0, 0), Rect((pos[0] - 8*PW, pos[1] + 18*PW), (32*PW, 5*PW)))
+        pygame.draw.rect(dest, (0, 255, 0), Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),((mon.HP / (mon.stats["HP"]*10)) * (32*PW)-4, (5*PW)-4)))
+        
+    for i, mon in enumerate(team2.mons):
+        if mon is None: continue
+        if i == team2.front:
+            PW = 3
+            pos = BATTLE_DRAW_POSITIONS["team2"]["front"]
+        elif i == (team2.front + 1) % 3:
+            PW = 2
+            pos = BATTLE_DRAW_POSITIONS["team2"]["right"]
+        elif i == (team2.front - 1) % 3:
+            PW = 2
+            pos = BATTLE_DRAW_POSITIONS["team2"]["left"]
+
+        col1, col2 = COLORS[mon.element]
+        tk.draw_token(dest, mon.animal, pos, col1=col1, col2=col2, PW=PW)
+
+        pygame.draw.rect(dest, (0, 0, 0), Rect((pos[0] - 8*PW, pos[1] + 18*PW), (32*PW, 5*PW)))
+        pygame.draw.rect(dest, (0, 255, 0), Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),((mon.HP / (mon.stats["HP"]*10)) * (32*PW)-4, (5*PW)-4)))
+        
+        
 def calculate_damage(attacker, defender, move_type, base_dmg):
     dmg = (base_dmg * (attacker.stats["AT"] + attacker.stat_mods["AT"])) * (1 / (defender.stats["DF"] + defender.stat_mods["DF"]))
     if move_type in ANIMALS[defender.animal]["weak"] + ELEMENTS[defender.element]["weak"]:
@@ -230,64 +292,33 @@ class Team(object):
                     mod = int(statmod[2:])
                     mon.stat_mods[stat] += mod
 
+def make_mon():
+    return Mon(
+        choice(list(ELEMENTS.keys())),
+        choice(list(ANIMALS.keys())) 
+    )
+               
 if __name__ == """__main__""":
-    mon1 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    mon2 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    mon3 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    myTeam = Team(mon1, mon2, mon3)
+    myTeam = Team(make_mon(), make_mon(), make_mon())
+    enemyTeam = Team(make_mon(), make_mon(), make_mon())
 
-    mon4 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    mon5 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    mon6 = Mon(
-        choice(list(ELEMENTS.keys())),
-        choice(list(ANIMALS.keys())) 
-    )
-    enemyTeam = Team(mon4, mon5, mon6)
 
-    def print_teams():
-        print()
-        print("my team", "front:", myTeam.front)
-        for i, mon in enumerate(myTeam.mons):
-            print("-")
-            if mon is None:
-                print("DEAD")
-                continue
-            print(i, ":", mon.element, mon.animal)
-            print("HP", mon.HP,"/", mon.stats["HP"] * 10)
-            print(mon.stat_mods)
+    SCREEN = pygame.display.set_mode((512, 256))
+    CLOCK = pygame.time.Clock()
+    t = 0
+    while True:
+        t += CLOCK.tick()
 
-        print("-----")
-        print("enemy team", "front:", enemyTeam.front)
-        for i, mon in enumerate(enemyTeam.mons):
-            print("-")
-            if mon is None:
-                print("DEAD")
-                continue
-            print(i, ":", mon.element, mon.animal)
-            print("HP", mon.HP,"/", mon.stats["HP"] * 10)
-            print(mon.stat_mods)
+        if t > 300 and any(myTeam.mons) and any(enemyTeam.mons):
+            t = 0
+            battle_turn(myTeam, enemyTeam)
 
-    from os import system
-    system("cls|clear")
-    print_teams()
-    while any(myTeam.mons) and any(enemyTeam.mons):
-        input("\nenter to run next turn...")
-        system("cls|clear")
-        battle_turn(myTeam, enemyTeam)
-        print_teams()
+        SCREEN.fill((255, 255, 255))
+        draw_battle(SCREEN, myTeam, enemyTeam)
+        pygame.display.update()
+        
+        for e in pygame.event.get():
+            if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE:
+                quit()
+
     
