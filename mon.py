@@ -326,16 +326,14 @@ def battle_turn(team1, team2):
         mon1.XP += sum([mon.level for mon in kill_mons(team2)])
         
 class Mon(object):
-    def __init__(self, element, animal, moves=None, level=1, stats=None):
+    def __init__(self, element, animal, moves=None, level=False, stats=None):
         self.element = element
         self.animal = animal
 
-        self.level = 1
+        self.level = level if level else 1
         self.XP = 0
         
         self.stats = stats or ANIMAL_STAT_MODS[self.animal].copy()
-        while self.level < level and stats:
-            self.level_up()
 
         self.stat_mods = {
             "AT": 0, "DF": 0, "SP": 0,
@@ -461,6 +459,15 @@ def make_mon():
         choice(list(ANIMALS.keys())) 
     )
 
+def load_mon(string):
+    name, moves, level, stats = string.split(";")
+    element, animal = name.split()
+    return Mon(element, animal, moves=eval(moves), level=int(level), stats=eval(stats))
+
+def load_team(string):
+    mon_strings = string.split(" | ")
+    mons = [load_mon(s) for s in mon_strings]
+    return Team(mons[0], mons[1], mons[2])
 
 def update():
     global STEP
@@ -542,13 +549,47 @@ def run_tournament():
     DRAWSTUFF["BRACKET"] = ROOT.drawn_node()
     return ROOT.resolve(HEL16, CLOCK)
 
+
+def get_champs():
+    with open("mon.save", "r") as f:
+        champs = eval(f.read())
+    return champs
+
+def save_champ(team):
+    champs = get_champs()
+    champs[BRACKET_SIZE] = str(team)
+    with open("mon.save", "w") as f:
+        f.write(repr(champs))
+    
 if __name__ == """__main__""":
     winners = []
     initialize()
-    while True:
-        winners.append(run_tournament().drawn_team())
+    DRAWSTUFF["EXTRASTUFF"].fill((255, 255, 255))
 
-        for i, surf in enumerate(winners):
-            DRAWSTUFF["EXTRASTUFF"].blit(pygame.transform.scale(surf, (64, 64)), (i*64, 0))
+    while True:
+        winner = run_tournament()
+
+        DRAWSTUFF["EXTRASTUFF"].fill((255, 255, 255))
+        DRAWSTUFF["EXTRASTUFF"].blit(HEL16.render("WINNER", 0, (0, 0, 0)), (0, 0))
+        t = 0
+        while t < 2000:
+            t += CLOCK.tick()
+            update()
+        
+        champs = get_champs()
+        if BRACKET_SIZE in champs:
+            champion = load_team(champs[BRACKET_SIZE])
+            DRAWSTUFF["EXTRASTUFF"].fill((255, 255, 255))
+            DRAWSTUFF["EXTRASTUFF"].blit(HEL16.render("CHALLENGING CHAMPION", 0, (0, 0, 0)), (0, 0))
+            DRAWSTUFF["EXTRASTUFF"].blit(champion.drawn_team(), (0, 16))
+            t = 0
+            while t < 2000:
+                t += CLOCK.tick()
+                update()
+            
+            champion = run_battle(DRAWSTUFF["FIGHTSURF"], HEL16, CLOCK, champion, winner)
+        else:
+            champion = winner
+        save_champ(champion)
         
     
