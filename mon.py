@@ -60,7 +60,7 @@ import sys
 
 from tokens import tokens as tk
 
-STEP = 2000 if "-s" not in sys.argv else int(sys.argv[sys.argv.index("-s") + 1])
+STEP = 500 if "-s" not in sys.argv else int(sys.argv[sys.argv.index("-s") + 1])
 TURN_LIMIT = 100 if "-t" not in sys.argv else int(sys.argv[sys.argv.index("-t") + 1])
 BRACKET_SIZE = 4 if "-b" not in sys.argv else int(sys.argv[sys.argv.index("-b") + 1])
 
@@ -176,7 +176,7 @@ ROOT = None
 
 def draw():
     DRAWSTUFF["SCREEN"].fill((255, 255, 255))
-    DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["FIGHTSURF"], (128, 0))
+    DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["FIGHTSURF"], ((DRAWSTUFF["SCREEN"].get_width() - DRAWSTUFF["FIGHTSURF"].get_width()) // 2, 0))
     DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["BRACKET"], (0, 256))
     DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["EXTRASTUFF"], (0, DRAWSTUFF["SCREEN"].get_height()-DRAWSTUFF["EXTRASTUFF"].get_height()))
 
@@ -538,6 +538,7 @@ def initialize():
     global CLOCK, HEL16
     pygame.init()
     DRAWSTUFF["SCREEN"] = pygame.display.set_mode((896, 640)) if "-f" not in sys.argv else pygame.display.set_mode((896, 640), FULLSCREEN)
+    if "-f" in sys.argv: pygame.mouse.set_cursor((8,8),(0,0),(0,0,0,0,0,0,0,0),(0,0,0,0,0,0,0,0))
     DRAWSTUFF["FIGHTSURF"] = pygame.Surface((600, 256))
     DRAWSTUFF["EXTRASTUFF"] = pygame.Surface((896, 64))
     CLOCK = pygame.time.Clock()
@@ -587,9 +588,9 @@ if __name__ == """__main__""":
                 t += CLOCK.tick()
                 update()
             
-            champion = run_battle(DRAWSTUFF["FIGHTSURF"], HEL16, CLOCK, champion, winner)
+            new = run_battle(DRAWSTUFF["FIGHTSURF"], HEL16, CLOCK, champion, winner)
+            if new is not champion:
+                save_champ(new)
         else:
-            champion = winner
-        save_champ(champion)
-        
+            save_champ(winner)
     
