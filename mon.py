@@ -62,7 +62,7 @@ from tokens import tokens as tk
 
 STEP = 2000 if "-s" not in sys.argv else int(sys.argv[sys.argv.index("-s") + 1])
 TURN_LIMIT = 100 if "-t" not in sys.argv else int(sys.argv[sys.argv.index("-t") + 1])
-BRACKET_SIZE = 3 if "-b" not in sys.argv else int(sys.argv[sys.argv.index("-b") + 1])
+BRACKET_SIZE = 4 if "-b" not in sys.argv else int(sys.argv[sys.argv.index("-b") + 1])
 
 ELEMENTS = {
     "fire": {"weak":["water"], "res":["wind"]},
@@ -530,7 +530,7 @@ def run_battle(surface, font, clock, team1, team2):
 def initialize():
     global CLOCK, HEL16
     pygame.init()
-    DRAWSTUFF["SCREEN"] = pygame.display.set_mode((896, 896)) if "-f" not in sys.argv else pygame.display.set_mode((896, 896), FULLSCREEN)
+    DRAWSTUFF["SCREEN"] = pygame.display.set_mode((896, 640)) if "-f" not in sys.argv else pygame.display.set_mode((896, 640), FULLSCREEN)
     DRAWSTUFF["FIGHTSURF"] = pygame.Surface((600, 256))
     DRAWSTUFF["EXTRASTUFF"] = pygame.Surface((896, 64))
     CLOCK = pygame.time.Clock()
