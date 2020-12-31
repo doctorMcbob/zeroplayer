@@ -340,7 +340,7 @@ class Mon(object):
     
     def level_up(self):
         for stat in self.stats:
-            self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal][stat]+1)
+            self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal][stat])
         self.level += 1
 
 
