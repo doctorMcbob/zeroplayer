@@ -40,12 +40,13 @@ the game will be a tournament, 16, 32, or 64? maybe decide size from command lin
   [x]  draw move names
   [x]  draw attack arrows 
   [x]  draw stat modifiers
+   [] draw bracket
 |                          |
   ___      BALANCE      ___
-   []  add turn limit
+  [x]  add turn limit
 |                          |
   ___       GAME        ___
-   [] make tournament
+  [x] make tournament
    [] save/load champion
 |__________________________|
 
@@ -60,7 +61,8 @@ import sys
 from tokens import tokens as tk
 
 STEP = 2000 if "-s" not in sys.argv else int(sys.argv[sys.argv.index("-s") + 1])
-
+TURN_LIMIT = 100 if "-t" not in sys.argv else int(sys.argv[sys.argv.index("-t") + 1])
+BRACKET_SIZE = 3 if "-b" not in sys.argv else int(sys.argv[sys.argv.index("-b") + 1])
 
 ELEMENTS = {
     "fire": {"weak":["water"], "res":["wind"]},
@@ -195,8 +197,7 @@ def draw_move(dest, font, move, leftright, defendingteam):
             elif move_type in ELEMENTS[defender.element]["weak"] + ANIMALS[defender.animal]["weak"]:
                 col = (255, 0, 0)
             elif move_type in ELEMENTS[defender.element]["res"] + ANIMALS[defender.animal]["res"]:
-                col = (0, 0, 255)
-        
+                col = (0, 0, 255)        
             else:
                 col = (0, 0, 0)
         else:
@@ -226,7 +227,7 @@ def draw_battle(dest, font, team1, team2):
         stat_mods = ""
         for stat in ["AT", "DF", "SP"]:
             if mon.stat_mods[stat]:
-                stat_mods += " {} +{}".format(stat, mon.stat_mods[stat])
+                stat_mods += " {}+{}".format(stat, mon.stat_mods[stat])
         stat_mods = font.render(stat_mods, 0, (0, 0, 0))
         dest.blit(stat_mods, (pos[0]-32, pos[1]-16))
         
@@ -271,8 +272,12 @@ def calculate_damage(attacker, defender, move_type, base_dmg):
     return dmg
 
 def kill_mons(team):
+    deadmons = []
     for i, mon in enumerate(team.mons):
-        if mon is not None and mon.HP <= 0: team.mons[i] = None        
+        if mon is not None and mon.HP <= 0:
+            team.mons[i] = None        
+            deadmons.append(mon)
+    return deadmons
 
 def battle_turn(team1, team2):
     mon1 = choice(team1.mons)
@@ -288,29 +293,30 @@ def battle_turn(team1, team2):
     if mon1.stats["SP"] + mon1.stat_mods["SP"] > mon2.stats["SP"] + mon2.stat_mods["SP"] or (mon1.stats["SP"] + mon1.stat_mods["SP"] == mon2.stats["SP"] + mon2.stat_mods["SP"] and randint(0, 1)):
         yield mon1_move, "left", team2
         team1.resolve_move(mon1, mon1_move, team2)
-        kill_mons(team2)
+        mon1.XP += sum([mon.level for mon in kill_mons(team2)])
         if mon2.HP <= 0: return
         yield mon2_move, "right", team1
         team2.resolve_move(mon2, mon2_move, team1)
-        kill_mons(team1)
+        mon2.XP += sum([mon.level for mon in kill_mons(team1)])
     else:
         yield mon2_move, "right", team1
         team2.resolve_move(mon2, mon2_move, team1)
-        kill_mons(team1)
+        mon2.XP += sum([mon.level for mon in kill_mons(team1)])
         if mon1.HP <= 0: return
         yield mon1_move, "left", team2
         team1.resolve_move(mon1, mon1_move, team2)
-        kill_mons(team2)
+        mon1.XP += sum([mon.level for mon in kill_mons(team2)])
         
 class Mon(object):
-    def __init__(self, element, animal, moves=False, level=1):
+    def __init__(self, element, animal, moves=None, level=1, stats=None):
         self.element = element
         self.animal = animal
 
         self.level = 1
-
-        self.stats = ANIMAL_STAT_MODS[self.animal].copy()
-        while self.level < level:
+        self.XP = 0
+        
+        self.stats = stats or ANIMAL_STAT_MODS[self.animal].copy()
+        while self.level < level and stats:
             self.level_up()
 
         self.stat_mods = {
@@ -325,12 +331,16 @@ class Mon(object):
         )
 
     def __str__(self):
-        return "{} {};{};{}".format(self.element, self.animal, self.moves, self.level)
+        return "{} {};{};{};{}".format(self.element, self.animal, self.moves, self.level, self.stats)
 
+    def reset_mods(self):
+        self.stat_mods = {
+            "AT": 0, "DF": 0, "SP": 0,
+        }
+    
     def level_up(self):
         for stat in self.stats:
-            self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal]+1)
-        self.HP = self.stats["HP"] * 10
+            self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal][stat]+1)
         self.level += 1
 
 
@@ -377,6 +387,31 @@ class Team(object):
                     mod = int(statmod[2:])
                     mon.stat_mods[stat] += mod
 
+
+class BracketNode(object):
+    def __init__(self, team1, team2):
+        self.team1 = team1
+        self.team2 = team2
+
+    def resolve(self, surf, font, clock):
+        if type(self.team1) == BracketNode:
+            self.team1 = self.team1.resolve(surf, font, clock)
+        if type(self.team2) == BracketNode:
+            self.team2 = self.team2.resolve(surf, font, clock)
+
+        return run_battle(surf, font, clock, self.team1, self.team2)
+
+    
+def make_bracket(size=3):
+    bottom_nodes = [Team(make_mon(), make_mon(), make_mon()) for _ in range(2 ** size)]
+    top_nodes = []
+    while len(top_nodes + bottom_nodes) > 1:
+        while bottom_nodes:
+            top_nodes.append(BracketNode(bottom_nodes.pop(), bottom_nodes.pop()))
+        top_nodes, bottom_nodes = bottom_nodes, top_nodes
+    return bottom_nodes.pop()
+
+
 def make_mon():
     return Mon(
         choice(list(ELEMENTS.keys())),
@@ -395,33 +430,69 @@ def update():
             if e.key == K_RIGHT: STEP = max(STEP // 2, 1)
 
 
+def choose_winner(team1, team2):
+    if not any(team1.mons): return team2
+    if not any(team2.mons): return team1
+    if team1.mons.count(None) < team2.mons.count(None): return team1
+    if team1.mons.count(None) > team2.mons.count(None): return team2
+    team1_damage, team2_damage = 0, 0
+    for i in range(3):
+        if team1.mons[i] is not None:
+            team1_damage += team1.mons[i].stats["HP"]*10 - team1.mons[i].HP
+        if team2.mons[i] is not None:
+            team2_damage += team2.mons[i].stats["HP"]*10 - team2.mons[i].HP
+    if team1_damage < team2_damage: return team1
+    if team1_damage > team2_damage: return team2
+    return team1 if randint(0, 1) else team2
+    
+def run_battle(surface, font, clock, team1, team2):
+    team1_mons = [mon for mon in team1.mons]
+    team2_mons = [mon for mon in team2.mons]
+    timer = 0
+    turn = 0
+    while turn < TURN_LIMIT and any(team1.mons) and any(team2.mons):
+        timer += clock.tick()
+        turn_num = font.render(str(turn), 0, (0, 0, 0))
+        if timer > STEP:
+            for move, leftright, defenders in battle_turn(team1, team2):
+                timer = 0
+                SCREEN.fill((255, 255, 255))
+                SCREEN.blit(turn_num, (242, 204))
+                draw_battle(surface, font, team1, team2)
+                draw_move(surface, font, move, leftright, defenders)
+                while timer < STEP:
+                    timer += clock.tick()
+                    update()
+            for mon in team1.mons + team2.mons:
+                if mon is None: continue
+                if mon.XP > mon.level * 2:
+                    mon.XP = 0
+                    mon.level_up()
+                    print("LEVEL UP!", mon)
+            turn += 1
+        SCREEN.fill((255, 255, 255))
+        SCREEN.blit(turn_num, (242, 204))
+        draw_battle(surface, font, team1, team2)
+        update()
+
+    winner = choose_winner(team1, team2) 
+    team1.mons = team1_mons
+    team2.mons = team2_mons
+    for mon in team1.mons + team2.mons:
+        mon.HP = mon.stats["HP"] * 10
+        mon.reset_mods()
+    return winner
+
+
 if __name__ == """__main__""":
     # TEMPORARY DEMO
     
-    myTeam = Team(make_mon(), make_mon(), make_mon())
-    enemyTeam = Team(make_mon(), make_mon(), make_mon())
-
     pygame.init()
     SCREEN = pygame.display.set_mode((528, 256)) if "-f" not in sys.argv else pygame.display.set_mode((528, 256), FULLSCREEN)
     CLOCK = pygame.time.Clock()
     HEL16 = pygame.font.SysFont("Helvetica", 16)
-    t = 0
-    while True:
-        t += CLOCK.tick()
-
-        if t > STEP and any(myTeam.mons) and any(enemyTeam.mons):
-            for move, leftright, defenders in battle_turn(myTeam, enemyTeam):
-                t = 0
-                SCREEN.fill((255, 255, 255))
-                draw_battle(SCREEN, HEL16, myTeam, enemyTeam)
-                draw_move(SCREEN, HEL16, move, leftright, defenders)
-                while t < STEP:
-                    t += CLOCK.tick()
-                    update()
-
-                   
-        SCREEN.fill((255, 255, 255))
-        draw_battle(SCREEN, HEL16, myTeam, enemyTeam)
-        update()
-
+    
+    bracket = make_bracket(BRACKET_SIZE)
+    print("THE WINNING TEAM!", 
+          bracket.resolve(SCREEN, HEL16, CLOCK))
     
