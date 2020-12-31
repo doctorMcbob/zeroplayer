@@ -55,8 +55,12 @@ import pygame
 from pygame import Rect
 from pygame.locals import *
 from random import randint, choice
+import sys
 
 from tokens import tokens as tk
+
+STEP = 2000 if "-s" not in sys.argv else int(sys.argv[sys.argv.index("-s") + 1])
+
 
 ELEMENTS = {
     "fire": {"weak":["water"], "res":["wind"]},
@@ -101,7 +105,7 @@ MOVES = {
     "earth": {
         "Avalanche": """attack;front;20""",
         "Quake": """attack;front,left,right;8""",
-        "Compound": """stat;front;DF+2""",
+        "Compound": """stat;front;AT+1,DF+1""",
     },
     "plant": {
         "Bloom": """attack;front;20""",
@@ -126,7 +130,7 @@ MOVES = {
     "snake": {
         "Bite": """attack;front;20""",
         "Constrict": """attack;right;20""",
-        "Shed Skin": """stat;front;HEAL5,DF+1""",
+        "Shed Skin": """stat;front;HEAL5,SP+1""",
     },
     "monster": {
         "Dominate": """attack;front;20""",
@@ -381,10 +385,14 @@ def make_mon():
 
 
 def update():
+    global STEP
     pygame.display.update()
     for e in pygame.event.get():
         if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE:
             quit()
+        if e.type == KEYDOWN:
+            if e.key == K_LEFT: STEP = min(STEP * 2, 2000)
+            if e.key == K_RIGHT: STEP = max(STEP // 2, 1)
 
 
 if __name__ == """__main__""":
@@ -394,20 +402,20 @@ if __name__ == """__main__""":
     enemyTeam = Team(make_mon(), make_mon(), make_mon())
 
     pygame.init()
-    SCREEN = pygame.display.set_mode((512, 256))
+    SCREEN = pygame.display.set_mode((528, 256)) if "-f" not in sys.argv else pygame.display.set_mode((528, 256), FULLSCREEN)
     CLOCK = pygame.time.Clock()
     HEL16 = pygame.font.SysFont("Helvetica", 16)
     t = 0
     while True:
         t += CLOCK.tick()
 
-        if t > 1000 and any(myTeam.mons) and any(enemyTeam.mons):
+        if t > STEP and any(myTeam.mons) and any(enemyTeam.mons):
             for move, leftright, defenders in battle_turn(myTeam, enemyTeam):
                 t = 0
                 SCREEN.fill((255, 255, 255))
                 draw_battle(SCREEN, HEL16, myTeam, enemyTeam)
                 draw_move(SCREEN, HEL16, move, leftright, defenders)
-                while t < 1000:
+                while t < STEP:
                     t += CLOCK.tick()
                     update()
 
