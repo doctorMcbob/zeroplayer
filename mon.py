@@ -166,6 +166,20 @@ BATTLE_DRAW_POSITIONS = {
     }
 }
 
+DRAWSTUFF = {
+    "SCREEN": None,
+    "FIGHTSURF": None,
+    "BRACKET": None,
+    "EXTRASURF": None,
+}
+ROOT = None
+
+def draw():
+    DRAWSTUFF["SCREEN"].fill((255, 255, 255))
+    DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["FIGHTSURF"], (128, 0))
+    DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["BRACKET"], (0, 256))
+    DRAWSTUFF["SCREEN"].blit(DRAWSTUFF["EXTRASTUFF"], (0, DRAWSTUFF["SCREEN"].get_height()-DRAWSTUFF["EXTRASTUFF"].get_height()))
+
 def draw_arrow(dest, col, pos, leftright):
     pygame.draw.line(dest, col, pos, (pos[0]+64, pos[1]), 3)
     if leftright == "right":
@@ -230,6 +244,8 @@ def draw_battle(dest, font, team1, team2):
                 stat_mods += " {}+{}".format(stat, mon.stat_mods[stat])
         stat_mods = font.render(stat_mods, 0, (0, 0, 0))
         dest.blit(stat_mods, (pos[0]-32, pos[1]-16))
+        lvl = font.render("L{}".format(mon.level), 0, (0, 0, 0))
+        dest.blit(lvl, (pos[0]-32, pos[1]))
         
     for i, mon in enumerate(team2.mons):
         if mon is None: continue
@@ -254,6 +270,8 @@ def draw_battle(dest, font, team1, team2):
                 stat_mods += " {} +{}".format(stat, mon.stat_mods[stat])
         stat_mods = font.render(stat_mods, 0, (0, 0, 0))
         dest.blit(stat_mods, (pos[0]-32, pos[1]-16))
+        lvl = font.render("L{}".format(mon.level), 0, (0, 0, 0))
+        dest.blit(lvl, (pos[0]-32, pos[1]))
 
     if team1.mons[team1.front] is not None:
         name = font.render(team1.mons[team1.front].element + " " + team1.mons[team1.front].animal, 0, (0, 0, 0))
@@ -349,9 +367,19 @@ class Team(object):
         self.mons = [mon1, mon2, mon3]
         self.front = 0
 
-
     def __str__(self):
         return " | ".join([str(mon) for mon in self.mons])
+
+    def drawn_team(self):
+        surf = pygame.Surface((32, 32))
+        surf.fill((255, 255, 255))
+        col1, col2 = COLORS[self.mons[0].element]
+        tk.draw_token(surf, self.mons[0].animal, (8, 0), col1=col1, col2=col2, PW=1)
+        col1, col2 = COLORS[self.mons[1].element]
+        tk.draw_token(surf, self.mons[1].animal, (0, 16), col1=col1, col2=col2, PW=1)
+        col1, col2 = COLORS[self.mons[2].element]
+        tk.draw_token(surf, self.mons[2].animal, (16, 16), col1=col1, col2=col2, PW=1)
+        return surf
         
     def resolve_move(self, attacker, move, enemy_team):
         """
@@ -393,15 +421,30 @@ class BracketNode(object):
         self.team1 = team1
         self.team2 = team2
 
-    def resolve(self, surf, font, clock):
+    def resolve(self, font, clock):
         if type(self.team1) == BracketNode:
-            self.team1 = self.team1.resolve(surf, font, clock)
+            self.team1 = self.team1.resolve(font, clock)
         if type(self.team2) == BracketNode:
-            self.team2 = self.team2.resolve(surf, font, clock)
+            self.team2 = self.team2.resolve(font, clock)
 
-        return run_battle(surf, font, clock, self.team1, self.team2)
+        DRAWSTUFF["BRACKET"] = ROOT.drawn_node()
+        return run_battle(DRAWSTUFF["FIGHTSURF"], font, clock, self.team1, self.team2)
 
-    
+    def drawn_node(self):
+        left_img = self.team1.drawn_node() if type(self.team1) == BracketNode else self.team1.drawn_team()
+        right_img = self.team2.drawn_node() if type(self.team2) == BracketNode else self.team2.drawn_team()
+        W = left_img.get_width() + right_img.get_width()
+        H = max(left_img.get_height(), right_img.get_height()) + 32
+        surf = pygame.Surface((W, H))
+        surf.fill((255, 255, 255))
+        surf.blit(left_img, (0, 32))
+        surf.blit(right_img, (left_img.get_width(), 32))
+        pygame.draw.line(surf, (0, 0, 0), (left_img.get_width() // 2, 32), (left_img.get_width() // 2, 16), 3)
+        pygame.draw.line(surf, (0, 0, 0), (W - right_img.get_width() // 2, 32), (W - right_img.get_width() // 2, 16), 3)
+        pygame.draw.line(surf, (0, 0, 0), (left_img.get_width() // 2, 16), (W - right_img.get_width() // 2, 16), 3)
+        pygame.draw.line(surf, (0, 0, 0), (W//2, 16), (W//2, 0), 3)
+        return surf
+
 def make_bracket(size=3):
     bottom_nodes = [Team(make_mon(), make_mon(), make_mon()) for _ in range(2 ** size)]
     top_nodes = []
@@ -421,6 +464,7 @@ def make_mon():
 
 def update():
     global STEP
+    draw()
     pygame.display.update()
     for e in pygame.event.get():
         if e.type == QUIT or e.type == KEYDOWN and e.key == K_ESCAPE:
@@ -456,8 +500,8 @@ def run_battle(surface, font, clock, team1, team2):
         if timer > STEP:
             for move, leftright, defenders in battle_turn(team1, team2):
                 timer = 0
-                SCREEN.fill((255, 255, 255))
-                SCREEN.blit(turn_num, (242, 204))
+                surface.fill((255, 255, 255))
+                surface.blit(turn_num, (242, 204))
                 draw_battle(surface, font, team1, team2)
                 draw_move(surface, font, move, leftright, defenders)
                 while timer < STEP:
@@ -468,10 +512,9 @@ def run_battle(surface, font, clock, team1, team2):
                 if mon.XP > mon.level * 2:
                     mon.XP = 0
                     mon.level_up()
-                    print("LEVEL UP!", mon)
             turn += 1
-        SCREEN.fill((255, 255, 255))
-        SCREEN.blit(turn_num, (242, 204))
+        surface.fill((255, 255, 255))
+        surface.blit(turn_num, (242, 204))
         draw_battle(surface, font, team1, team2)
         update()
 
@@ -484,15 +527,28 @@ def run_battle(surface, font, clock, team1, team2):
     return winner
 
 
-if __name__ == """__main__""":
-    # TEMPORARY DEMO
-    
+def initialize():
+    global CLOCK, HEL16
     pygame.init()
-    SCREEN = pygame.display.set_mode((528, 256)) if "-f" not in sys.argv else pygame.display.set_mode((528, 256), FULLSCREEN)
+    DRAWSTUFF["SCREEN"] = pygame.display.set_mode((896, 896)) if "-f" not in sys.argv else pygame.display.set_mode((896, 896), FULLSCREEN)
+    DRAWSTUFF["FIGHTSURF"] = pygame.Surface((600, 256))
+    DRAWSTUFF["EXTRASTUFF"] = pygame.Surface((896, 64))
     CLOCK = pygame.time.Clock()
     HEL16 = pygame.font.SysFont("Helvetica", 16)
     
-    bracket = make_bracket(BRACKET_SIZE)
-    print("THE WINNING TEAM!", 
-          bracket.resolve(SCREEN, HEL16, CLOCK))
+def run_tournament():
+    global ROOT
+    ROOT = make_bracket(BRACKET_SIZE)
+    DRAWSTUFF["BRACKET"] = ROOT.drawn_node()
+    return ROOT.resolve(HEL16, CLOCK)
+
+if __name__ == """__main__""":
+    winners = []
+    initialize()
+    while True:
+        winners.append(run_tournament().drawn_team())
+
+        for i, surf in enumerate(winners):
+            DRAWSTUFF["EXTRASTUFF"].blit(pygame.transform.scale(surf, (64, 64)), (i*64, 0))
+        
     
