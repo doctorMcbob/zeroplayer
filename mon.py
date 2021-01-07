@@ -82,7 +82,7 @@ ANIMALS = {
 
 ANIMAL_STAT_MODS = {
     "bird": { "SP": 4, "AT": 2, "DF": 2, "HP": 10 },
-    "ape": { "SP": 2, "AT": 3, "DF": 2, "HP": 15 },
+    "ape": { "SP": 2, "AT": 2, "DF": 2, "HP": 15 },
     "rodent": { "SP": 3, "AT": 3, "DF": 2, "HP": 10 },
     "snake": { "SP": 3, "AT": 2, "DF": 3, "HP": 10 },
     "monster": { "SP": 2, "AT": 4, "DF": 2, "HP": 10 },
@@ -116,8 +116,8 @@ MOVES = {
     },
     "bird": {
         "Dive Bomb": """attack;front;20""",
-        "Pick": """attack;right;20""",
-        "Floof": """stat;left,right;HEAL5,SP+1"""
+        "Pick": """attack;right;25""",
+        "Floof": """stat;left,right;HEAL8,SP+2"""
     },
     "ape": {
         "Monke Mash": """attack;front;20""",
@@ -131,8 +131,8 @@ MOVES = {
     },
     "snake": {
         "Bite": """attack;front;20""",
-        "Constrict": """attack;right;20""",
-        "Shed Skin": """stat;front;HEAL5,SP+1""",
+        "Constrict": """attack;left;25""",
+        "Shed Skin": """stat;front;HEAL10,SP+1""",
     },
     "monster": {
         "Dominate": """attack;front;20""",
@@ -235,9 +235,13 @@ def draw_battle(dest, font, team1, team2):
 
         col1, col2 = COLORS[mon.element]
         tk.draw_token(dest, mon.animal, pos, col1=col1, col2=col2, PW=PW)
-        
+
+        hp = font.render(str(mon.HP), 0, (0, 0, 0))
+        dest.blit(hp, (pos[0] - 8*PW, pos[1] + 5*PW))
         pygame.draw.rect(dest, (0, 0, 0), Rect((pos[0] - 8*PW, pos[1] + 18*PW), (32*PW, 5*PW)))
-        pygame.draw.rect(dest, (0, 255, 0), Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),((mon.HP / (mon.stats["HP"]*10)) * (32*PW)-4, (5*PW)-4)))
+        pygame.draw.rect(dest, (0, 255, 0),
+                         Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),
+                              (max(1, (mon.HP / (mon.stats["HP"]*10) * (32*PW))-4), (5*PW)-4)))
         stat_mods = ""
         for stat in ["AT", "DF", "SP"]:
             if mon.stat_mods[stat]:
@@ -262,8 +266,12 @@ def draw_battle(dest, font, team1, team2):
         col1, col2 = COLORS[mon.element]
         tk.draw_token(dest, mon.animal, pos, col1=col1, col2=col2, PW=PW)
 
+        hp = font.render(str(mon.HP), 0, (0, 0, 0))
+        dest.blit(hp, (pos[0] - 8*PW, pos[1] + 5*PW))
         pygame.draw.rect(dest, (0, 0, 0), Rect((pos[0] - 8*PW, pos[1] + 18*PW), (32*PW, 5*PW)))
-        pygame.draw.rect(dest, (0, 255, 0), Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),((mon.HP / (mon.stats["HP"]*10)) * (32*PW)-4, (5*PW)-4)))
+        pygame.draw.rect(dest, (0, 255, 0),
+                         Rect(((pos[0] - 8*PW) + 2, (pos[1] + 18*PW)+2),
+                              (max(1, (mon.HP / (mon.stats["HP"]*10) * (32*PW))-4), (5*PW)-4)))
         stat_mods = ""
         for stat in ["AT", "DF", "SP"]:
             if mon.stat_mods[stat]:
@@ -284,9 +292,9 @@ def draw_battle(dest, font, team1, team2):
 def calculate_damage(attacker, defender, move_type, base_dmg):
     dmg = (base_dmg * (attacker.stats["AT"] + attacker.stat_mods["AT"])) * (1 / (defender.stats["DF"] + defender.stat_mods["DF"]))
     if move_type in ANIMALS[defender.animal]["weak"] + ELEMENTS[defender.element]["weak"]:
-        dmg *= 1.25
+        dmg *= 1.33
     if move_type in ANIMALS[defender.animal]["res"] + ELEMENTS[defender.element]["res"]:
-        dmg *= 0.75
+        dmg *= 0.66
     return dmg
 
 def kill_mons(team):
@@ -355,8 +363,9 @@ class Mon(object):
         }
     
     def level_up(self):
-        for stat in self.stats:
-            self.stats[stat] += randint(0, ANIMAL_STAT_MODS[self.animal][stat])
+        for _ in range(self.level):
+            stat = choice(list(self.stats.keys()))
+            self.stats[stat] += randint(1, 2)
         self.level += 1
 
 
@@ -402,17 +411,19 @@ class Team(object):
             if move_catagory == "attack":
                 dmg = calculate_damage(attacker, mon, movetype, int(data))
                 mon.HP -= dmg
+                mon.HP = int(mon.HP)
 
             if move_catagory == "stat":
                 for statmod in data.split(","):
                     if "HEAL" in statmod:
                         mon.HP = min(mon.stats["HP"] * 10, mon.HP + 100 * (int(statmod[4:]) / float(mon.stats["HP"] * 10)))
+                        mon.HP = int(mon.HP)
                         continue
                     
                     stat = statmod[:2]
                     mod = int(statmod[2:])
-                    mon.stat_mods[stat] += mod
-
+                    mon.stat_mods[stat] = min(mon.stat_mods[stat] + mod, 10)
+                    
 
 class BracketNode(object):
     def __init__(self, team1, team2):
